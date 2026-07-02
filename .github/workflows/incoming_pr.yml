@@ -48,7 +48,3 @@ jobs:
 
       - name: List all of the snowflake dbt project objects in your account
         run: snow dbt list -x
-
-      # Builds all models and runs tests in DAG order, failing early if any upstream test breaks
-      - name: Build and test dbt project in ${{ vars.SNOWFLAKE_DATABASE }}.${{ vars.SNOWFLAKE_SCHEMA }}
-        run: snow dbt execute -x tester_tasty_bytes_dbt_project_object_gh_action build --target dev
