@@ -33,8 +33,8 @@ dim as (
         is_active,
 
         -- audit
-        {{ dbt_current_timestamp() }} as dt_created,
-        {{ dbt_current_timestamp() }} as dt_modified
+       {{ dbt_utils.current_timestamp() }} as dt_created,
+       {{ dbt_utils.current_timestamp() }} as dt_modified
     from s
 )
 
