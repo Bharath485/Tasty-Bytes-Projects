@@ -89,6 +89,7 @@ jobs:
         echo "===================================================="
 
     - name: Snowflake Connection Test
+      id: connection_test
       run: |
         echo "===================================================="
         echo "TEST 1 : SNOWFLAKE CONNECTION TEST"
@@ -99,6 +100,7 @@ jobs:
         echo "===================================================="
 
     - name: Deploy Tester DBT Project
+      id: dbt_deploy
       run: |
         echo "===================================================="
         echo "TEST 2 : DBT DEPLOYMENT VALIDATION"
@@ -112,6 +114,7 @@ jobs:
         echo "===================================================="
 
     - name: List DBT Projects
+      id: dbt_validate
       run: |
         echo "===================================================="
         echo "TEST 3 : LIST DBT PROJECT OBJECTS"
@@ -165,3 +168,59 @@ jobs:
         echo "- Deployment Issues"
 
         echo "===================================================="
+
+    - name: Write Audit Record to Snowflake
+      if: always()
+      run: |
+        TESTS_PASSED=""
+        TESTS_FAILED=""
+
+        if [ "${{ steps.connection_test.outcome }}" == "success" ]; then
+          TESTS_PASSED="${TESTS_PASSED}Connection Test,"
+        else
+          TESTS_FAILED="${TESTS_FAILED}Connection Test,"
+        fi
+
+        if [ "${{ steps.dbt_deploy.outcome }}" == "success" ]; then
+          TESTS_PASSED="${TESTS_PASSED}DBT Deployment,"
+        else
+          TESTS_FAILED="${TESTS_FAILED}DBT Deployment,"
+        fi
+
+        if [ "${{ steps.dbt_validate.outcome }}" == "success" ]; then
+          TESTS_PASSED="${TESTS_PASSED}DBT Validation,"
+        else
+          TESTS_FAILED="${TESTS_FAILED}DBT Validation,"
+        fi
+
+        TESTS_PASSED=$(echo "$TESTS_PASSED" | sed 's/,$//')
+        TESTS_FAILED=$(echo "$TESTS_FAILED" | sed 's/,$//')
+
+        FILES_CHANGED=$(git diff --name-only \
+          origin/${{ github.base_ref }}...HEAD 2>/dev/null | tr '\n' ',' | sed 's/,$//' || echo "unknown")
+
+        STATUS="${{ job.status }}"
+        STATUS_UPPER=$(echo "$STATUS" | tr '[:lower:]' '[:upper:]')
+
+        PR_TITLE=$(echo "${{ github.event.pull_request.title }}" | sed "s/'/''/g")
+
+        snow sql -q "
+          INSERT INTO DBT_POC.AUDIT.DEPLOYMENT_AUDIT
+            (EVENT_TYPE, STATUS, PR_NUMBER, PR_TITLE, PR_CREATED_BY, MERGED_BY,
+             SOURCE_BRANCH, TARGET_BRANCH, COMMIT_SHA, FILES_CHANGED,
+             TESTS_PASSED, TESTS_FAILED, WORKFLOW_RUN_ID, REPOSITORY)
+          VALUES
+            ('PR_VALIDATION', '${STATUS_UPPER}',
+             ${{ github.event.pull_request.number }},
+             '${PR_TITLE}',
+             '${{ github.event.pull_request.user.login }}',
+             '${{ github.actor }}',
+             '${{ github.head_ref }}',
+             '${{ github.base_ref }}',
+             '${{ github.sha }}',
+             '${FILES_CHANGED}',
+             '${TESTS_PASSED}',
+             '${TESTS_FAILED}',
+             '${{ github.run_id }}',
+             '${{ github.repository }}')
+        " -x
