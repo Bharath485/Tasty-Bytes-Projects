@@ -55,7 +55,7 @@ jobs:
 
           echo "Merge Commit SHA    : ${{ github.event.pull_request.merge_commit_sha }}"
 
-          echo "-------------FILES MERGED INTO MAIN-------------"
+          echo "FILES MERGED INTO MAIN"
           
           git show --name-only --pretty="" \ ${{ github.event.pull_request.merge_commit_sha }}
 
