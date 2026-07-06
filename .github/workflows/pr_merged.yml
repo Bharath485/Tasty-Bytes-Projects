@@ -1,8 +1,11 @@
 name: PR Accepted Deployment
-run-name: PR from ${{ github.actor }} accepted - triggered a ${{ github.event_name }}
+
+run-name: PR from ${{ github.actor }} accepted
+
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -10,45 +13,73 @@ permissions:
 
 jobs:
   run-snowflake-dbt-job:
-    name: "Run on Accepted PR"
+    name: Run on Accepted PR
     runs-on: ubuntu-latest
-    environment: prod # Must match the OIDC subject's environment
+
+    environment: prod
+
     env:
       SNOWFLAKE_CLI_FEATURES_ENABLE_DBT: true
       SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-      # SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PAT }} # Snowflake password is required if you aren't using OIDC
       SNOWFLAKE_DATABASE: DBT_POC
       SNOWFLAKE_SCHEMA: DBO
       SNOWFLAKE_ROLE: DBT_POC
       SNOWFLAKE_WAREHOUSE: DBT_POC
 
-
     steps:
-      # Check out repository code
-      # Gets the latest code from the pull request branch
+
+      - name: Main Branch Deployment Audit
+        run: |
+          echo "===================================================="
+          echo "MAIN BRANCH DEPLOYMENT"
+          echo "===================================================="
+          echo "Triggered By    : ${{ github.actor }}"
+          echo "Repository      : ${{ github.repository }}"
+          echo "Branch          : ${{ github.ref_name }}"
+          echo "Commit SHA      : ${{ github.sha }}"
+          echo "Workflow Run ID : ${{ github.run_id }}"
+          echo "===================================================="
+
       - name: Check out repository code
         uses: actions/checkout@v4
 
       - name: Install Snowflake CLI
         uses: snowflakedb/snowflake-cli-action@v2.0
-        with: # Ensures Snowflake CLI will search for OIDC users matching this subject
+        with:
           use-oidc: true
 
       - name: Check Snowflake CLI Version
         run: snow --version
 
-      # The -x is shorthand for --temporary-connection
-      - run: snow connection test -x
+      - name: Snowflake Connection Test
+        run: snow connection test -x
 
-      # The --force setting creates the object or updates it if it already exists
-      # You can remove the "--source" flag if your dbt_project.yml is at root of your repo
-      # The --default-target flag ensures the dbt project object compiles and executes with your prod target
-      - name: Create a new dbt project object in ${{ vars.SNOWFLAKE_DATABASE }}.${{ vars.SNOWFLAKE_SCHEMA }}
-        run: snow dbt deploy tasty_bytes_dbt_object_gh_action --source ./tasty_bytes --default-target prod --dbt-version 1.10.15 --force -x
+      - name: Deploy Production DBT Project
+        run: |
+          snow dbt deploy tasty_bytes_dbt_object_gh_action \
+          --source ./tasty_bytes_dbt_demo \
+          --default-target prod \
+          --dbt-version 1.10.15 \
+          --force -x
 
-      - name: List all of the snowflake dbt project objects on your account
+      - name: List DBT Projects
         run: snow dbt list -x
 
-      # (optional) Uncomment the lines below and follow Step 7 if you want to manage Task orchestration via source control
-      # - name: Run schedules.sql to create or alter tasks for tasty_bytes_dbt_object_gh_action
-      #   run: snow sql -f ${{ github.workspace }}/tasty_bytes/schedules.sql -x
+      - name: Deployment Success
+        if: success()
+        run: |
+          echo "===================================================="
+          echo "DEPLOYMENT STATUS : SUCCESS"
+          echo "Environment       : PROD"
+          echo "Commit SHA        : ${{ github.sha }}"
+          echo "===================================================="
+
+      - name: Deployment Failure
+        if: failure()
+        run: |
+          echo "===================================================="
+          echo "DEPLOYMENT STATUS : FAILED"
+          echo "Environment       : PROD"
+          echo "Commit SHA        : ${{ github.sha }}"
+          echo "Review previous step logs for exact error"
+          echo "===================================================="

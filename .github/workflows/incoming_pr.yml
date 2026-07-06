@@ -1,5 +1,7 @@
 name: Incoming PR
+
 run-name: PR opened by ${{ github.actor }}
+
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
@@ -11,40 +13,78 @@ permissions:
 
 jobs:
   run-snowflake-test-dbt-job:
-    name: "Run on Incoming PR"
+    name: Run on Incoming PR
     runs-on: ubuntu-latest
-    environment: prod # Must match the OIDC subject's environment
+
+    environment: prod
+
     env:
       SNOWFLAKE_CLI_FEATURES_ENABLE_DBT: true
       SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-      # SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PAT }} # Snowflake password is required if you aren't using OIDC
       SNOWFLAKE_DATABASE: DBT_POC
       SNOWFLAKE_SCHEMA: DBO
       SNOWFLAKE_ROLE: DBT_POC
       SNOWFLAKE_WAREHOUSE: DBT_POC
 
-
     steps:
-      # Check out repository code
-      # Gets the latest code from the incoming pull request
+
+      - name: PR Audit Information
+        run: |
+          echo "===================================================="
+          echo "PR AUDIT INFORMATION"
+          echo "===================================================="
+          echo "PR Number       : ${{ github.event.pull_request.number }}"
+          echo "PR Title        : ${{ github.event.pull_request.title }}"
+          echo "Created By      : ${{ github.actor }}"
+          echo "Source Branch   : ${{ github.head_ref }}"
+          echo "Target Branch   : ${{ github.base_ref }}"
+          echo "Commit SHA      : ${{ github.sha }}"
+          echo "Repository      : ${{ github.repository }}"
+          echo "Workflow Run ID : ${{ github.run_id }}"
+          echo "===================================================="
+
       - name: Check out repository code
         uses: actions/checkout@v4
 
       - name: Install Snowflake CLI
         uses: snowflakedb/snowflake-cli-action@v2.0
-        with: # Ensures Snowflake CLI will search for OIDC users matching this subject
+        with:
           use-oidc: true
 
       - name: Check Snowflake CLI Version
         run: snow --version
 
-      # The -x is shorthand for --temporary-connection
-      - run: snow connection test -x
+      - name: Snowflake Connection Test
+        run: snow connection test -x
 
-      # The --force setting creates the object or updates it if it already exists
-      # You can remove the "--source" flag if your dbt_project.yml is at root of your repo
-      - name: Create a new tester dbt project object in ${{ vars.SNOWFLAKE_DATABASE }}.${{ vars.SNOWFLAKE_SCHEMA }}
-        run: snow dbt deploy tester_tasty_bytes_dbt_project_object_gh_action --source ./tasty_bytes_dbt_demo --dbt-version 1.10.15 --force -x
+      - name: Deploy Tester DBT Project
+        run: |
+          snow dbt deploy tester_tasty_bytes_dbt_project_object_gh_action \
+          --source ./tasty_bytes_dbt_demo \
+          --dbt-version 1.10.15 \
+          --force -x
 
-      - name: List all of the snowflake dbt project objects in your account
+      - name: List DBT Projects
         run: snow dbt list -x
+
+      - name: Incoming PR Validation Success
+        if: success()
+        run: |
+          echo "===================================================="
+          echo "CI VALIDATION STATUS : SUCCESS"
+          echo "Tests Passed:"
+          echo "1. Snowflake Connection Test"
+          echo "2. DBT Deployment Validation"
+          echo "3. DBT Project Listing"
+          echo "===================================================="
+
+      - name: Incoming PR Validation Failure
+        if: failure()
+        run: |
+          echo "===================================================="
+          echo "CI VALIDATION STATUS : FAILED"
+          echo "Review previous step logs for exact failure"
+          echo "Repository : ${{ github.repository }}"
+          echo "PR Number  : ${{ github.event.pull_request.number }}"
+          echo "Commit SHA : ${{ github.sha }}"
+          echo "===================================================="
