@@ -88,3 +88,18 @@ jobs:
           echo "PR Number  : ${{ github.event.pull_request.number }}"
           echo "Commit SHA : ${{ github.sha }}"
           echo "===================================================="
+
+      - name: Incoming PR Audit
+        run: |
+          echo "===================================================="
+          echo "PR AUDIT INFORMATION"
+          echo "===================================================="
+          echo "PR Number       : ${{ github.event.pull_request.number }}"
+          echo "PR Title        : ${{ github.event.pull_request.title }}"
+          echo "Created By      : ${{ github.actor }}"
+          echo "Source Branch   : ${{ github.head_ref }}"
+          echo "Target Branch   : ${{ github.base_ref }}"
+          echo "Commit SHA      : ${{ github.sha }}"
+          echo "Repository      : ${{ github.repository }}"
+          echo "Workflow Run ID : ${{ github.run_id }}"
+          echo "===================================================="
