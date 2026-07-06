@@ -1,11 +1,16 @@
 name: Incoming PR
 
-run-name: PR opened by ${{ github.actor }}
+run-name: PR #${{ github.event.pull_request.number }} opened by ${{ github.actor }}
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-    branches: [main]
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -13,6 +18,7 @@ permissions:
 
 jobs:
   run-snowflake-test-dbt-job:
+
     name: Run on Incoming PR
     runs-on: ubuntu-latest
 
@@ -28,78 +34,134 @@ jobs:
 
     steps:
 
-      - name: PR Audit Information
-        run: |
-          echo "===================================================="
-          echo "PR AUDIT INFORMATION"
-          echo "===================================================="
-          echo "PR Number       : ${{ github.event.pull_request.number }}"
-          echo "PR Title        : ${{ github.event.pull_request.title }}"
-          echo "Created By      : ${{ github.actor }}"
-          echo "Source Branch   : ${{ github.head_ref }}"
-          echo "Target Branch   : ${{ github.base_ref }}"
-          echo "Commit SHA      : ${{ github.sha }}"
-          echo "Repository      : ${{ github.repository }}"
-          echo "Workflow Run ID : ${{ github.run_id }}"
-          echo "===================================================="
+    - name: PR Audit Information
+      run: |
+        echo "===================================================="
+        echo "INCOMING PR AUDIT INFORMATION"
+        echo "===================================================="
 
-      - name: Check out repository code
-        uses: actions/checkout@v4
+        echo "PR Number           : ${{ github.event.pull_request.number }}"
+        echo "PR Title            : ${{ github.event.pull_request.title }}"
 
-      - name: Install Snowflake CLI
-        uses: snowflakedb/snowflake-cli-action@v2.0
-        with:
-          use-oidc: true
+        echo "PR Created By       : ${{ github.event.pull_request.user.login }}"
 
-      - name: Check Snowflake CLI Version
-        run: snow --version
+        echo "Current Triggered By: ${{ github.actor }}"
 
-      - name: Snowflake Connection Test
-        run: snow connection test -x
+        echo "Source Branch       : ${{ github.head_ref }}"
+        echo "Target Branch       : ${{ github.base_ref }}"
 
-      - name: Deploy Tester DBT Project
-        run: |
-          snow dbt deploy tester_tasty_bytes_dbt_project_object_gh_action \
+        echo "Commit SHA          : ${{ github.sha }}"
+        echo "Repository          : ${{ github.repository }}"
+        echo "Workflow Run ID     : ${{ github.run_id }}"
+        echo "Workflow Name       : Incoming PR"
+
+        echo "===================================================="
+
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Show Changed Files
+      run: |
+        echo "===================================================="
+        echo "FILES INCLUDED IN THIS PR"
+        echo "===================================================="
+
+        git fetch origin ${{ github.base_ref }}
+
+        git diff --name-only \
+          origin/${{ github.base_ref }}...HEAD || true
+
+        echo "===================================================="
+
+    - name: Install Snowflake CLI
+      uses: snowflakedb/snowflake-cli-action@v2.0
+      with:
+        use-oidc: true
+
+    - name: Check Snowflake CLI Version
+      run: |
+        echo "===================================================="
+        echo "SNOWFLAKE CLI VERSION"
+        echo "===================================================="
+
+        snow --version
+
+        echo "===================================================="
+
+    - name: Snowflake Connection Test
+      run: |
+        echo "===================================================="
+        echo "TEST 1 : SNOWFLAKE CONNECTION TEST"
+        echo "===================================================="
+
+        snow connection test -x
+
+        echo "===================================================="
+
+    - name: Deploy Tester DBT Project
+      run: |
+        echo "===================================================="
+        echo "TEST 2 : DBT DEPLOYMENT VALIDATION"
+        echo "===================================================="
+
+        snow dbt deploy tester_tasty_bytes_dbt_project_object_gh_action \
           --source ./tasty_bytes_dbt_demo \
           --dbt-version 1.10.15 \
           --force -x
 
-      - name: List DBT Projects
-        run: snow dbt list -x
+        echo "===================================================="
 
-      - name: Incoming PR Validation Success
-        if: success()
-        run: |
-          echo "===================================================="
-          echo "CI VALIDATION STATUS : SUCCESS"
-          echo "Tests Passed:"
-          echo "1. Snowflake Connection Test"
-          echo "2. DBT Deployment Validation"
-          echo "3. DBT Project Listing"
-          echo "===================================================="
+    - name: List DBT Projects
+      run: |
+        echo "===================================================="
+        echo "TEST 3 : LIST DBT PROJECT OBJECTS"
+        echo "===================================================="
 
-      - name: Incoming PR Validation Failure
-        if: failure()
-        run: |
-          echo "===================================================="
-          echo "CI VALIDATION STATUS : FAILED"
-          echo "Review previous step logs for exact failure"
-          echo "Repository : ${{ github.repository }}"
-          echo "PR Number  : ${{ github.event.pull_request.number }}"
-          echo "Commit SHA : ${{ github.sha }}"
-          echo "===================================================="
+        snow dbt list -x
 
-      - name: Incoming PR Audit
-        run: |
-          echo "===================================================="
-          echo "PR AUDIT INFORMATION"
-          echo "===================================================="
-          echo "PR Number       : ${{ github.event.pull_request.number }}"
-          echo "PR Title        : ${{ github.event.pull_request.title }}"
-          echo "Created By      : ${{ github.actor }}"
-          echo "Source Branch   : ${{ github.head_ref }}"
-          echo "Target Branch   : ${{ github.base_ref }}"
-          echo "Commit SHA      : ${{ github.sha }}"
-          echo "Repository      : ${{ github.repository }}"
-          echo "Workflow Run ID : ${{ github.run_id }}"
-          echo "===================================================="
+        echo "===================================================="
+
+    - name: Incoming PR Validation Success
+      if: success()
+      run: |
+        echo "===================================================="
+        echo "CI VALIDATION STATUS : SUCCESS"
+        echo "===================================================="
+
+        echo "PR Number     : ${{ github.event.pull_request.number }}"
+        echo "PR Owner      : ${{ github.event.pull_request.user.login }}"
+        echo "Commit SHA    : ${{ github.sha }}"
+
+        echo ""
+        echo "PASSED TESTS"
+        echo "------------"
+        echo "1. Snowflake Connection Test"
+        echo "2. DBT Deployment Validation"
+        echo "3. DBT Project Listing"
+
+        echo ""
+        echo "READY FOR REVIEW AND MERGE"
+
+        echo "===================================================="
+
+    - name: Incoming PR Validation Failure
+      if: failure()
+      run: |
+        echo "===================================================="
+        echo "CI VALIDATION STATUS : FAILED"
+        echo "===================================================="
+
+        echo "PR Number     : ${{ github.event.pull_request.number }}"
+        echo "PR Owner      : ${{ github.event.pull_request.user.login }}"
+        echo "Commit SHA    : ${{ github.sha }}"
+        echo "Repository    : ${{ github.repository }}"
+
+        echo ""
+        echo "VALIDATION FAILED"
+        echo "Review logs above to identify:"
+        echo "- Snowflake Connection Issues"
+        echo "- Permission Issues"
+        echo "- DBT Compilation Issues"
+        echo "- Deployment Issues"
+
+        echo "===================================================="

@@ -1,18 +1,23 @@
 name: PR Accepted Deployment
 
-run-name: PR from ${{ github.actor }} accepted
+run-name: PR #${{ github.event.pull_request.number }} merged by ${{ github.actor }}
 
 on:
-  push:
-    branches:
-      - main
+  pull_request:
+    types:
+      - closed
 
 permissions:
   contents: read
+  pull-requests: read
   id-token: write
 
 jobs:
+
   run-snowflake-dbt-job:
+
+    if: github.event.pull_request.merged == true
+
     name: Run on Accepted PR
     runs-on: ubuntu-latest
 
@@ -28,20 +33,45 @@ jobs:
 
     steps:
 
-      - name: Main Branch Deployment Audit
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Merge Audit Information
         run: |
           echo "===================================================="
-          echo "MAIN BRANCH DEPLOYMENT"
-          echo "===================================================="
-          echo "Triggered By    : ${{ github.actor }}"
-          echo "Repository      : ${{ github.repository }}"
-          echo "Branch          : ${{ github.ref_name }}"
-          echo "Commit SHA      : ${{ github.sha }}"
-          echo "Workflow Run ID : ${{ github.run_id }}"
+          echo "PR MERGE AUDIT INFORMATION"
           echo "===================================================="
 
-      - name: Check out repository code
-        uses: actions/checkout@v4
+          echo "PR Number           : ${{ github.event.pull_request.number }}"
+          echo "PR Title            : ${{ github.event.pull_request.title }}"
+
+          echo "PR Created By       : ${{ github.event.pull_request.user.login }}"
+          echo "Merged By           : ${{ github.actor }}"
+
+          echo "Source Branch       : ${{ github.event.pull_request.head.ref }}"
+          echo "Target Branch       : ${{ github.event.pull_request.base.ref }}"
+
+          echo "PR Head SHA         : ${{ github.event.pull_request.head.sha }}"
+          echo "Merge Commit SHA    : ${{ github.event.pull_request.merge_commit_sha }}"
+
+          echo "Repository          : ${{ github.repository }}"
+          echo "Workflow Run ID     : ${{ github.run_id }}"
+
+          echo "===================================================="
+
+      - name: Show Changed Files
+        run: |
+          echo "===================================================="
+          echo "FILES MERGED INTO MAIN"
+          echo "===================================================="
+
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+
+          git diff --name-only \
+            ${{ github.event.pull_request.base.sha }} \
+            ${{ github.event.pull_request.head.sha }}
+
+          echo "===================================================="
 
       - name: Install Snowflake CLI
         uses: snowflakedb/snowflake-cli-action@v2.0
@@ -49,29 +79,74 @@ jobs:
           use-oidc: true
 
       - name: Check Snowflake CLI Version
-        run: snow --version
+        run: |
+          echo "===================================================="
+          echo "SNOWFLAKE CLI VERSION"
+          echo "===================================================="
+
+          snow --version
+
+          echo "===================================================="
 
       - name: Snowflake Connection Test
-        run: snow connection test -x
+        run: |
+          echo "===================================================="
+          echo "DEPLOYMENT TEST 1 : SNOWFLAKE CONNECTION"
+          echo "===================================================="
+
+          snow connection test -x
+
+          echo "===================================================="
 
       - name: Deploy Production DBT Project
         run: |
+          echo "===================================================="
+          echo "DEPLOYMENT TEST 2 : PRODUCTION DBT DEPLOYMENT"
+          echo "===================================================="
+
           snow dbt deploy tasty_bytes_dbt_object_gh_action \
-          --source ./tasty_bytes_dbt_demo \
-          --default-target prod \
-          --dbt-version 1.10.15 \
-          --force -x
+            --source ./tasty_bytes_dbt_demo \
+            --default-target prod \
+            --dbt-version 1.10.15 \
+            --force -x
+
+          echo "===================================================="
 
       - name: List DBT Projects
-        run: snow dbt list -x
+        run: |
+          echo "===================================================="
+          echo "DEPLOYMENT TEST 3 : VALIDATE DEPLOYED PROJECTS"
+          echo "===================================================="
+
+          snow dbt list -x
+
+          echo "===================================================="
 
       - name: Deployment Success
         if: success()
         run: |
           echo "===================================================="
           echo "DEPLOYMENT STATUS : SUCCESS"
+          echo "===================================================="
+
+          echo "PR Number         : ${{ github.event.pull_request.number }}"
+          echo "PR Owner          : ${{ github.event.pull_request.user.login }}"
+          echo "Merged By         : ${{ github.actor }}"
+
           echo "Environment       : PROD"
-          echo "Commit SHA        : ${{ github.sha }}"
+
+          echo "Merge Commit SHA  : ${{ github.event.pull_request.merge_commit_sha }}"
+
+          echo ""
+          echo "PASSED TESTS"
+          echo "------------"
+          echo "1. Snowflake Connection Test"
+          echo "2. Production DBT Deployment"
+          echo "3. DBT Project Validation"
+
+          echo ""
+          echo "MAIN BRANCH DEPLOYMENT COMPLETED"
+
           echo "===================================================="
 
       - name: Deployment Failure
@@ -79,7 +154,26 @@ jobs:
         run: |
           echo "===================================================="
           echo "DEPLOYMENT STATUS : FAILED"
+          echo "===================================================="
+
+          echo "PR Number         : ${{ github.event.pull_request.number }}"
+          echo "PR Owner          : ${{ github.event.pull_request.user.login }}"
+          echo "Merged By         : ${{ github.actor }}"
+
           echo "Environment       : PROD"
-          echo "Commit SHA        : ${{ github.sha }}"
-          echo "Review previous step logs for exact error"
+
+          echo "Merge Commit SHA  : ${{ github.event.pull_request.merge_commit_sha }}"
+
+          echo ""
+          echo "POSSIBLE FAILURE AREAS"
+          echo "----------------------"
+          echo "1. Snowflake Connection Failure"
+          echo "2. Role / Permission Issues"
+          echo "3. Database / Schema Missing"
+          echo "4. DBT Compilation Failure"
+          echo "5. DBT Deployment Failure"
+
+          echo ""
+          echo "Review logs above for exact exception message"
+
           echo "===================================================="
