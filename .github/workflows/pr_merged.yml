@@ -50,8 +50,7 @@ jobs:
           echo "Source Branch       : ${{ github.event.pull_request.head.ref }}"
           echo "Target Branch       : ${{ github.event.pull_request.base.ref }}"
           echo "Merge Commit SHA    : ${{ github.event.pull_request.merge_commit_sha }}"
-          echo "FILES MERGED INTO MAIN"         
-          git show --name-only --pretty="" \ ${{ github.event.pull_request.merge_commit_sha }}
+          echo "FILES MERGED INTO MAIN : git show --name-only --pretty="" \ ${{ github.event.pull_request.merge_commit_sha }}"
           echo "===================================================="
 
       - name: Install Snowflake CLI
