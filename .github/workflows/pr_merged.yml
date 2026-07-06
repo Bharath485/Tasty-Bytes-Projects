@@ -37,30 +37,21 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
+          
       - name: Merge Audit Information
         run: |
           echo "===================================================="
           echo "PR MERGE AUDIT INFORMATION"
           echo "===================================================="
-
           echo "PR Number           : ${{ github.event.pull_request.number }}"
           echo "PR Title            : ${{ github.event.pull_request.title }}"
-
           echo "PR Created By       : ${{ github.event.pull_request.user.login }}"
           echo "Merged By           : ${{ github.actor }}"
-
           echo "Source Branch       : ${{ github.event.pull_request.head.ref }}"
           echo "Target Branch       : ${{ github.event.pull_request.base.ref }}"
-
           echo "Merge Commit SHA    : ${{ github.event.pull_request.merge_commit_sha }}"
-
-          echo "FILES MERGED INTO MAIN"
-          
+          echo "FILES MERGED INTO MAIN"         
           git show --name-only --pretty="" \ ${{ github.event.pull_request.merge_commit_sha }}
-
-
-
           echo "===================================================="
 
       - name: Install Snowflake CLI
