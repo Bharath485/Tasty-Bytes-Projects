@@ -53,25 +53,13 @@ jobs:
           echo "Source Branch       : ${{ github.event.pull_request.head.ref }}"
           echo "Target Branch       : ${{ github.event.pull_request.base.ref }}"
 
-          echo "PR Head SHA         : ${{ github.event.pull_request.head.sha }}"
           echo "Merge Commit SHA    : ${{ github.event.pull_request.merge_commit_sha }}"
 
-          echo "Repository          : ${{ github.repository }}"
-          echo "Workflow Run ID     : ${{ github.run_id }}"
+          echo "-------------FILES MERGED INTO MAIN-------------"
+          
+          git show --name-only --pretty="" \ ${{ github.event.pull_request.merge_commit_sha }}
 
-          echo "===================================================="
 
-      - name: Show Changed Files
-        run: |
-          echo "===================================================="
-          echo "FILES MERGED INTO MAIN"
-          echo "===================================================="
-
-          git fetch origin ${{ github.event.pull_request.base.ref }}
-
-          git diff --name-only \
-            ${{ github.event.pull_request.base.sha }} \
-            ${{ github.event.pull_request.head.sha }}
 
           echo "===================================================="
 
