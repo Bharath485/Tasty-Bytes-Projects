@@ -1,3 +1,4 @@
+-- data for customer loyality metrics
 SELECT 
     cl.customer_id,
     cl.city,
