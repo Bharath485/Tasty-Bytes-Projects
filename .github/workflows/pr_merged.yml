@@ -20,7 +20,8 @@ jobs:
 
     name: Run on Accepted PR
     runs-on: ubuntu-latest
-
+    container: 
+      image: python:3.10-slim
     environment: prod
 
     env:
